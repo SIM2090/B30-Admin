@@ -105,14 +105,14 @@
         <span>دسترسی فعال</span>
       </label>
       <div class="dialog-actions">
-        <button value="cancel" class="btn ghost">انصراف</button>
-        <button id="btn-dialog-save" value="default" class="btn primary">تأیید</button>
+        <button type="button" id="btn-dialog-cancel" class="btn ghost">انصراف</button>
+        <button type="button" id="btn-dialog-save" class="btn primary">تأیید</button>
       </div>
     </form>
   </dialog>
 
   <dialog id="approve-dialog">
-    <form method="dialog" class="dialog-card">
+    <form method="dialog" class="dialog-card" id="approve-form">
       <h2>تأیید درخواست</h2>
       <label class="field">
         <span>نام مشتری</span>
@@ -127,8 +127,8 @@
         <input id="a-exp" type="date" required />
       </label>
       <div class="dialog-actions">
-        <button value="cancel" class="btn ghost">انصراف</button>
-        <button id="btn-approve-confirm" value="default" class="btn primary">تأیید و انتشار</button>
+        <button type="button" id="btn-approve-cancel" class="btn ghost">انصراف</button>
+        <button type="button" id="btn-approve-confirm" class="btn primary">تأیید و انتشار</button>
       </div>
     </form>
   </dialog>

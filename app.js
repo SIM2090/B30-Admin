@@ -319,7 +319,14 @@
     setStatus("در حال بارگذاری دستگاه‌ها...");
     const data = await gh(`/repos/${CFG.licensesRepo}/contents/${CFG.devicesPath}`);
     sha = data.sha;
-    const parsed = JSON.parse(base64ToUtf8(data.content));
+    let parsed;
+    try {
+      parsed = JSON.parse(base64ToUtf8(data.content));
+    } catch (e) {
+      throw new Error(
+        "فایل devices.json خراب است (JSON نامعتبر). آن را از GitHub درست کنید یا اینجا دوباره ذخیره کنید."
+      );
+    }
     doc = {
       updated: parsed.updated || today(),
       note: parsed.note || "پنل مجوز B30 — مدیریت آنلاین",
@@ -487,6 +494,7 @@
     }
   });
 
+  $("btn-dialog-cancel").addEventListener("click", () => dialog.close());
   $("btn-dialog-save").addEventListener("click", (ev) => {
     ev.preventDefault();
     const device = normalizeDevice({
@@ -496,7 +504,14 @@
       exp: $("f-exp").value,
       enabled: $("f-enabled").checked,
     });
-    if (!device.hwid) return;
+    if (!device.hwid) {
+      alert("HWID را وارد کنید");
+      return;
+    }
+    if (!$("f-name").value.trim()) {
+      alert("نام مشتری را وارد کنید");
+      return;
+    }
     const dup = doc.devices.findIndex((d, i) => d.hwid === device.hwid && i !== editIndex);
     if (dup >= 0) {
       alert("این HWID قبلاً ثبت شده است");
@@ -509,6 +524,8 @@
     renderDevices();
     setStatus("تغییر اعمال شد — ذخیره یا انتشار را بزنید", false);
   });
+
+  $("btn-approve-cancel").addEventListener("click", () => approveDialog.close());
 
   requestsList.addEventListener("click", (ev) => {
     const shot = ev.target.closest("[data-shot]");
