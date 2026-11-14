@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>پنل مجوز B30</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="login-view" class="shell">
+    <div class="login-card">
+      <p class="brand">Cross Control</p>
+      <h1>پنل مجوز B30</h1>
+      <p class="sub">مدیریت آنلاین دستگاه‌های مجاز و سقف تقاطع</p>
+      <label class="field">
+        <span>توکن GitHub (دسترسی repo)</span>
+        <input id="token-input" type="password" autocomplete="off" placeholder="ghp_..." />
+      </label>
+      <label class="field">
+        <span>کلید خصوصی امضا (private.pem)</span>
+        <textarea id="pem-input" rows="4" placeholder="-----BEGIN RSA PRIVATE KEY-----"></textarea>
+      </label>
+      <p class="hint">هر دو فقط در همین مرورگر (session) می‌مانند و جایی آپلود نمی‌شوند. برای انتشار لازم است.</p>
+      <button id="btn-login" class="btn primary">ورود به پنل</button>
+      <p id="login-error" class="error" hidden></p>
+    </div>
+  </div>
+
+  <div id="app-view" class="shell" hidden>
+    <header class="topbar">
+      <div>
+        <p class="brand">Cross Control · B30</p>
+        <h1>پنل مجوز دستگاه‌ها</h1>
+      </div>
+      <div class="top-actions">
+        <button id="btn-reload" class="btn ghost">بارگذاری مجدد</button>
+        <button id="btn-save" class="btn secondary">ذخیره</button>
+        <button id="btn-publish" class="btn primary">امضا و انتشار آنلاین</button>
+        <button id="btn-logout" class="btn ghost">خروج</button>
+      </div>
+    </header>
+
+    <section class="status-bar">
+      <span id="status-text">آماده</span>
+      <span id="hwid-count" class="pill">۰ دستگاه</span>
+    </section>
+
+    <section class="toolbar">
+      <button id="btn-add" class="btn primary">+ دستگاه جدید</button>
+      <input id="search" type="search" placeholder="جستجو نام یا HWID..." />
+    </section>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>نام / مشتری</th>
+            <th>HWID</th>
+            <th>سقف تقاطع</th>
+            <th>انقضا</th>
+            <th>فعال</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="devices-body"></tbody>
+      </table>
+    </div>
+
+    <p class="footer-note">
+      «ذخیره» لیست را در ریپوی خصوصی نگه می‌دارد. «امضا و انتشار» همان لیست را برای برنامه B30 روی GitHub منتشر می‌کند.
+    </p>
+  </div>
+
+  <dialog id="edit-dialog">
+    <form method="dialog" id="edit-form" class="dialog-card">
+      <h2 id="dialog-title">دستگاه</h2>
+      <label class="field">
+        <span>نام / مشتری</span>
+        <input id="f-name" required />
+      </label>
+      <label class="field">
+        <span>HWID</span>
+        <input id="f-hwid" required placeholder="XXXX-XXXX-XXXX" />
+      </label>
+      <label class="field">
+        <span>حداکثر تقاطع</span>
+        <input id="f-max" type="number" min="1" max="999" required value="4" />
+      </label>
+      <label class="field">
+        <span>تاریخ انقضا</span>
+        <input id="f-exp" type="date" required />
+      </label>
+      <label class="check">
+        <input id="f-enabled" type="checkbox" checked />
+        <span>دسترسی فعال</span>
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn ghost">انصراف</button>
+        <button id="btn-dialog-save" value="default" class="btn primary">تأیید</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsrsasign@10.9.0/lib/jsrsasign-all-min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
