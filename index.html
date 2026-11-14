@@ -14,7 +14,7 @@
     <div class="login-card">
       <p class="brand">Cross Control</p>
       <h1>پنل مجوز B30</h1>
-      <p class="sub">مدیریت آنلاین دستگاه‌های مجاز و سقف تقاطع</p>
+      <p class="sub">درخواست‌های آنلاین، تأیید دستگاه و سقف تقاطع</p>
       <label class="field">
         <span>توکن GitHub (دسترسی repo)</span>
         <input id="token-input" type="password" autocomplete="off" placeholder="ghp_..." />
@@ -23,7 +23,7 @@
         <span>کلید خصوصی امضا (private.pem)</span>
         <textarea id="pem-input" rows="4" placeholder="-----BEGIN RSA PRIVATE KEY-----"></textarea>
       </label>
-      <p class="hint">هر دو فقط در همین مرورگر (session) می‌مانند و جایی آپلود نمی‌شوند. برای انتشار لازم است.</p>
+      <p class="hint">هر دو فقط در همین مرورگر (session) می‌مانند.</p>
       <button id="btn-login" class="btn primary">ورود به پنل</button>
       <p id="login-error" class="error" hidden></p>
     </div>
@@ -33,12 +33,12 @@
     <header class="topbar">
       <div>
         <p class="brand">Cross Control · B30</p>
-        <h1>پنل مجوز دستگاه‌ها</h1>
+        <h1>پنل مجوز</h1>
       </div>
       <div class="top-actions">
         <button id="btn-reload" class="btn ghost">بارگذاری مجدد</button>
-        <button id="btn-save" class="btn secondary">ذخیره</button>
-        <button id="btn-publish" class="btn primary">امضا و انتشار آنلاین</button>
+        <button id="btn-save" class="btn secondary">ذخیره دستگاه‌ها</button>
+        <button id="btn-publish" class="btn primary">امضا و انتشار</button>
         <button id="btn-logout" class="btn ghost">خروج</button>
       </div>
     </header>
@@ -48,30 +48,37 @@
       <span id="hwid-count" class="pill">۰ دستگاه</span>
     </section>
 
-    <section class="toolbar">
-      <button id="btn-add" class="btn primary">+ دستگاه جدید</button>
-      <input id="search" type="search" placeholder="جستجو نام یا HWID..." />
+    <nav class="tabs">
+      <button type="button" class="tab active" data-tab="requests">درخواست‌ها <span id="req-badge" class="tab-badge" hidden>0</span></button>
+      <button type="button" class="tab" data-tab="devices">دستگاه‌های مجاز</button>
+    </nav>
+
+    <section id="tab-requests" class="tab-panel">
+      <p class="section-lead">درخواست‌های دسترسی که برنامه فرستاده — با IP، مشخصات و عکس صفحه</p>
+      <div id="requests-list" class="requests-list"></div>
     </section>
 
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>نام / مشتری</th>
-            <th>HWID</th>
-            <th>سقف تقاطع</th>
-            <th>انقضا</th>
-            <th>فعال</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody id="devices-body"></tbody>
-      </table>
-    </div>
-
-    <p class="footer-note">
-      «ذخیره» لیست را در ریپوی خصوصی نگه می‌دارد. «امضا و انتشار» همان لیست را برای برنامه B30 روی GitHub منتشر می‌کند.
-    </p>
+    <section id="tab-devices" class="tab-panel" hidden>
+      <section class="toolbar">
+        <button id="btn-add" class="btn primary">+ دستگاه جدید</button>
+        <input id="search" type="search" placeholder="جستجو نام یا HWID..." />
+      </section>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>نام / مشتری</th>
+              <th>HWID</th>
+              <th>سقف تقاطع</th>
+              <th>انقضا</th>
+              <th>فعال</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="devices-body"></tbody>
+        </table>
+      </div>
+    </section>
   </div>
 
   <dialog id="edit-dialog">
@@ -102,6 +109,38 @@
         <button id="btn-dialog-save" value="default" class="btn primary">تأیید</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="approve-dialog">
+    <form method="dialog" class="dialog-card">
+      <h2>تأیید درخواست</h2>
+      <label class="field">
+        <span>نام مشتری</span>
+        <input id="a-name" required />
+      </label>
+      <label class="field">
+        <span>حداکثر تقاطع</span>
+        <input id="a-max" type="number" min="1" max="999" required value="4" />
+      </label>
+      <label class="field">
+        <span>انقضا</span>
+        <input id="a-exp" type="date" required />
+      </label>
+      <div class="dialog-actions">
+        <button value="cancel" class="btn ghost">انصراف</button>
+        <button id="btn-approve-confirm" value="default" class="btn primary">تأیید و انتشار</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="shot-dialog">
+    <div class="dialog-card shot-card">
+      <h2>عکس صفحه</h2>
+      <img id="shot-img" alt="screenshot" />
+      <div class="dialog-actions">
+        <button type="button" id="btn-shot-close" class="btn ghost">بستن</button>
+      </div>
+    </div>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/jsrsasign@10.9.0/lib/jsrsasign-all-min.js"></script>

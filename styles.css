@@ -235,7 +235,113 @@ dialog::backdrop { background: rgba(26, 43, 54, 0.45); }
   gap: 8px;
 }
 
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.tab {
+  font: inherit;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+}
+
+.tab-badge {
+  display: inline-block;
+  margin-inline-start: 6px;
+  background: #fff;
+  color: var(--teal-deep);
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 0.78rem;
+}
+
+.section-lead {
+  color: var(--muted);
+  margin: 0 0 12px;
+  font-size: 0.92rem;
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.req-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 14px;
+}
+
+.req-shot {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 10px;
+  background: #dfe7ee;
+  cursor: zoom-in;
+  border: 1px solid var(--line);
+}
+
+.req-shot.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: default;
+}
+
+.req-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 14px;
+  font-size: 0.9rem;
+}
+
+.req-meta dt { color: var(--muted); font-size: 0.78rem; margin: 0; }
+.req-meta dd { margin: 0 0 6px; font-weight: 600; word-break: break-word; }
+.req-meta .mono { font-family: ui-monospace, Consolas, monospace; direction: ltr; text-align: left; }
+
+.req-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+  padding-top: 4px;
+  border-top: 1px dashed var(--line);
+}
+
+.shot-card { max-width: min(920px, 94vw); }
+.shot-card img {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  margin: 8px 0 14px;
+}
+
 @media (max-width: 700px) {
   .topbar { align-items: flex-start; }
   h1 { font-size: 1.35rem; }
+  .req-card { grid-template-columns: 1fr; }
+  .req-meta { grid-template-columns: 1fr; }
 }

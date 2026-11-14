@@ -10,12 +10,18 @@
   const hwidCount = $("hwid-count");
   const tbody = $("devices-body");
   const dialog = $("edit-dialog");
+  const approveDialog = $("approve-dialog");
+  const shotDialog = $("shot-dialog");
+  const requestsList = $("requests-list");
 
   /** @type {{ updated: string, note?: string, devices: any[] }} */
   let doc = { updated: today(), devices: [] };
   let sha = null;
   let editIndex = -1;
   let dirty = false;
+  /** @type {any[]} */
+  let requests = [];
+  let approveTarget = null;
 
   function today() {
     return new Date().toISOString().slice(0, 10);
@@ -53,7 +59,10 @@
   async function gh(path, opts = {}) {
     const res = await fetch(`https://api.github.com${path}`, {
       ...opts,
-      headers: { ...apiHeaders(opts.json ? { "Content-Type": "application/json" } : null), ...(opts.headers || {}) },
+      headers: {
+        ...apiHeaders(opts.json ? { "Content-Type": "application/json" } : null),
+        ...(opts.headers || {}),
+      },
     });
     const text = await res.text();
     let body = null;
@@ -83,7 +92,6 @@
     };
   }
 
-  /** Match Python json.dumps(..., ensure_ascii=False, sort_keys=True, separators=(",", ":")) */
   function sortKeys(value) {
     if (Array.isArray(value)) return value.map(sortKeys);
     if (value && typeof value === "object") {
@@ -116,14 +124,6 @@
     return decodeURIComponent(escape(atob(b64.replace(/\n/g, ""))));
   }
 
-  function filteredDevices() {
-    const q = ($("search").value || "").trim().toLowerCase();
-    if (!q) return doc.devices.map((d, i) => ({ d, i }));
-    return doc.devices
-      .map((d, i) => ({ d, i }))
-      .filter(({ d }) => `${d.name} ${d.hwid}`.toLowerCase().includes(q));
-  }
-
   function escapeHtml(s) {
     return String(s)
       .replace(/&/g, "&amp;")
@@ -132,12 +132,20 @@
       .replace(/"/g, "&quot;");
   }
 
-  function render() {
+  function filteredDevices() {
+    const q = ($("search").value || "").trim().toLowerCase();
+    if (!q) return doc.devices.map((d, i) => ({ d, i }));
+    return doc.devices
+      .map((d, i) => ({ d, i }))
+      .filter(({ d }) => `${d.name} ${d.hwid}`.toLowerCase().includes(q));
+  }
+
+  function renderDevices() {
     const rows = filteredDevices();
     tbody.innerHTML = "";
     if (!rows.length) {
       tbody.innerHTML =
-        '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">دستگاهی نیست — «دستگاه جدید» را بزنید</td></tr>';
+        '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:28px">دستگاهی نیست</td></tr>';
     } else {
       for (const { d, i } of rows) {
         const tr = document.createElement("tr");
@@ -156,7 +164,140 @@
         tbody.appendChild(tr);
       }
     }
-    hwidCount.textContent = `${doc.devices.length} دستگاه${dirty ? " · ذخیره نشده" : ""}`;
+    hwidCount.textContent = `${doc.devices.length} دستگاه · ${requests.length} درخواست${dirty ? " · ذخیره نشده" : ""}`;
+  }
+
+  function mediaUrl(path) {
+    return `https://api.github.com/repos/${CFG.inboxRepo}/contents/${path}`;
+  }
+
+  async function fetchFileJson(path) {
+    const data = await gh(`/repos/${CFG.inboxRepo}/contents/${path}`);
+    return { sha: data.sha, json: JSON.parse(base64ToUtf8(data.content)), path, name: data.name };
+  }
+
+  async function fetchRawImageObjectUrl(path) {
+    const data = await gh(`/repos/${CFG.inboxRepo}/contents/${path}`);
+    const bin = atob(data.content.replace(/\n/g, ""));
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return URL.createObjectURL(new Blob([arr], { type: "image/jpeg" }));
+  }
+
+  function renderRequests() {
+    const badge = $("req-badge");
+    if (requests.length) {
+      badge.hidden = false;
+      badge.textContent = String(requests.length);
+    } else {
+      badge.hidden = true;
+    }
+    requestsList.innerHTML = "";
+    if (!requests.length) {
+      requestsList.innerHTML =
+        '<div class="req-card" style="display:block;text-align:center;color:var(--muted);padding:28px">درخواست معلقی نیست</div>';
+      renderDevices();
+      return;
+    }
+    for (const r of requests) {
+      const card = document.createElement("article");
+      card.className = "req-card";
+      const shotHtml = r.shotUrl
+        ? `<img class="req-shot" src="${r.shotUrl}" alt="screenshot" data-shot="${escapeHtml(r.shotUrl)}" />`
+        : `<div class="req-shot placeholder">بدون عکس</div>`;
+      const locals = (r.local_ips || []).join(", ") || "—";
+      card.innerHTML = `
+        ${shotHtml}
+        <div>
+          <dl class="req-meta">
+            <div><dt>IP عمومی</dt><dd class="mono">${escapeHtml(r.public_ip || "—")}</dd></div>
+            <div><dt>IP محلی</dt><dd class="mono">${escapeHtml(locals)}</dd></div>
+            <div><dt>سیستم</dt><dd>${escapeHtml(r.hostname || "—")} / ${escapeHtml(r.username || "—")}</dd></div>
+            <div><dt>سیستم‌عامل</dt><dd>${escapeHtml(r.os || "—")}</dd></div>
+            <div><dt>نسخه برنامه</dt><dd>${escapeHtml(r.app_version || "—")}</dd></div>
+            <div><dt>زمان</dt><dd>${escapeHtml(r.collected_at || "—")}</dd></div>
+            <div style="grid-column:1/-1"><dt>HWID (فقط برای شما)</dt><dd class="mono">${escapeHtml(r.hwid || "—")}</dd></div>
+          </dl>
+        </div>
+        <div class="req-actions">
+          <button type="button" class="btn primary" data-approve="${escapeHtml(r.id)}">تأیید دسترسی</button>
+          <button type="button" class="btn danger" data-deny="${escapeHtml(r.id)}">رد</button>
+        </div>`;
+      requestsList.appendChild(card);
+    }
+    renderDevices();
+  }
+
+  async function loadRequests() {
+    requests = [];
+    let listing;
+    try {
+      listing = await gh(`/repos/${CFG.inboxRepo}/contents/${CFG.pendingDir}`);
+    } catch (e) {
+      if (String(e.message || "").includes("Not Found")) {
+        renderRequests();
+        return;
+      }
+      throw e;
+    }
+    const files = (listing || []).filter((f) => f.type === "file" && f.name.endsWith(".json"));
+    for (const f of files) {
+      try {
+        const { sha: fileSha, json } = await fetchFileJson(`${CFG.pendingDir}/${f.name}`);
+        let shotUrl = "";
+        const shotPath = json.screenshot_path || `${CFG.pendingDir}/${f.name.replace(/\.json$/i, ".jpg")}`;
+        if (json.has_screenshot !== false) {
+          try {
+            shotUrl = await fetchRawImageObjectUrl(shotPath);
+          } catch {
+            shotUrl = "";
+          }
+        }
+        requests.push({
+          ...json,
+          id: json.id || f.name.replace(/\.json$/i, ""),
+          _sha: fileSha,
+          _path: `${CFG.pendingDir}/${f.name}`,
+          _shotPath: shotPath,
+          shotUrl,
+        });
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    requests.sort((a, b) => String(b.collected_at || "").localeCompare(String(a.collected_at || "")));
+    renderRequests();
+  }
+
+  async function deleteInboxPath(path, fileSha, message) {
+    await gh(`/repos/${CFG.inboxRepo}/contents/${path}`, {
+      method: "DELETE",
+      json: true,
+      body: JSON.stringify({ message, sha: fileSha }),
+    });
+  }
+
+  async function resolveRequestFileSha(path) {
+    const data = await gh(`/repos/${CFG.inboxRepo}/contents/${path}`);
+    return data.sha;
+  }
+
+  async function removePendingRequest(req) {
+    try {
+      await deleteInboxPath(req._path, req._sha, `resolve request ${req.id}`);
+    } catch (e) {
+      // retry with fresh sha
+      const s = await resolveRequestFileSha(req._path);
+      await deleteInboxPath(req._path, s, `resolve request ${req.id}`);
+    }
+    if (req.has_screenshot !== false) {
+      try {
+        const s = await resolveRequestFileSha(req._shotPath);
+        await deleteInboxPath(req._shotPath, s, `resolve screenshot ${req.id}`);
+      } catch {
+        /* no screenshot */
+      }
+    }
   }
 
   function openEditor(index) {
@@ -175,7 +316,7 @@
   }
 
   async function loadDevices() {
-    setStatus("در حال بارگذاری...");
+    setStatus("در حال بارگذاری دستگاه‌ها...");
     const data = await gh(`/repos/${CFG.licensesRepo}/contents/${CFG.devicesPath}`);
     sha = data.sha;
     const parsed = JSON.parse(base64ToUtf8(data.content));
@@ -185,8 +326,7 @@
       devices: Array.isArray(parsed.devices) ? parsed.devices.map(normalizeDevice) : [],
     };
     dirty = false;
-    render();
-    setStatus("بارگذاری شد", true);
+    renderDevices();
   }
 
   async function saveDevices() {
@@ -206,7 +346,7 @@
       });
       sha = res.content.sha;
       dirty = false;
-      render();
+      renderDevices();
       setStatus("ذخیره شد", true);
     } finally {
       $("btn-save").disabled = false;
@@ -254,7 +394,6 @@
   async function publish() {
     if (!getPem()) throw new Error("کلید خصوصی وارد نشده — دوباره وارد شوید");
     if (dirty) await saveDevices();
-
     setStatus("در حال امضا و انتشار...");
     $("btn-publish").disabled = true;
     try {
@@ -263,11 +402,30 @@
       const signed = JSON.stringify({ payload, sig }, null, 2) + "\n";
       const release = await ensureRelease();
       await uploadSignedAsset(release, "devices.signed.json", signed);
-      setStatus("منتشر شد — برنامه در اتصال بعدی لیست جدید را می‌گیرد", true);
+      setStatus("منتشر شد — برنامه‌ها تا ۲ دقیقه دیگر می‌گیرند", true);
     } finally {
       $("btn-publish").disabled = false;
     }
   }
+
+  async function reloadAll() {
+    setStatus("بارگذاری...");
+    await loadDevices();
+    await loadRequests();
+    setStatus("به‌روز شد", true);
+  }
+
+  function switchTab(name) {
+    document.querySelectorAll(".tab").forEach((t) => {
+      t.classList.toggle("active", t.dataset.tab === name);
+    });
+    $("tab-requests").hidden = name !== "requests";
+    $("tab-devices").hidden = name !== "devices";
+  }
+
+  document.querySelectorAll(".tab").forEach((btn) => {
+    btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+  });
 
   $("btn-login").addEventListener("click", async () => {
     const t = $("token-input").value.trim();
@@ -287,7 +445,7 @@
     try {
       await gh("/user");
       showApp(true);
-      await loadDevices();
+      await reloadAll();
     } catch (e) {
       clearCreds();
       $("login-error").textContent = "ورود ناموفق: " + e.message;
@@ -303,7 +461,7 @@
   });
 
   $("btn-reload").addEventListener("click", () =>
-    loadDevices().catch((e) => setStatus(e.message, false))
+    reloadAll().catch((e) => setStatus(e.message, false))
   );
   $("btn-save").addEventListener("click", () =>
     saveDevices().catch((e) => setStatus(e.message, false))
@@ -312,7 +470,7 @@
     publish().catch((e) => setStatus(e.message, false))
   );
   $("btn-add").addEventListener("click", () => openEditor(-1));
-  $("search").addEventListener("input", render);
+  $("search").addEventListener("input", renderDevices);
 
   tbody.addEventListener("click", (ev) => {
     const edit = ev.target.closest("[data-edit]");
@@ -324,7 +482,7 @@
       if (!confirm(`حذف «${name}»؟`)) return;
       doc.devices.splice(i, 1);
       dirty = true;
-      render();
+      renderDevices();
       setStatus("حذف شد — هنوز ذخیره نشده", false);
     }
   });
@@ -348,13 +506,72 @@
     else doc.devices.push(device);
     dirty = true;
     dialog.close();
-    render();
+    renderDevices();
     setStatus("تغییر اعمال شد — ذخیره یا انتشار را بزنید", false);
+  });
+
+  requestsList.addEventListener("click", (ev) => {
+    const shot = ev.target.closest("[data-shot]");
+    if (shot) {
+      $("shot-img").src = shot.dataset.shot;
+      shotDialog.showModal();
+      return;
+    }
+    const ap = ev.target.closest("[data-approve]");
+    const den = ev.target.closest("[data-deny]");
+    if (ap) {
+      approveTarget = requests.find((r) => r.id === ap.dataset.approve);
+      if (!approveTarget) return;
+      $("a-name").value = approveTarget.hostname || approveTarget.username || "مشتری جدید";
+      $("a-max").value = 4;
+      $("a-exp").value = "2099-12-31";
+      approveDialog.showModal();
+    }
+    if (den) {
+      const req = requests.find((r) => r.id === den.dataset.deny);
+      if (!req) return;
+      if (!confirm("این درخواست رد شود؟")) return;
+      setStatus("در حال رد درخواست...");
+      removePendingRequest(req)
+        .then(() => loadRequests())
+        .then(() => setStatus("درخواست رد شد", true))
+        .catch((e) => setStatus(e.message, false));
+    }
+  });
+
+  $("btn-shot-close").addEventListener("click", () => shotDialog.close());
+
+  $("btn-approve-confirm").addEventListener("click", async (ev) => {
+    ev.preventDefault();
+    if (!approveTarget) return;
+    const device = normalizeDevice({
+      hwid: approveTarget.hwid,
+      name: $("a-name").value,
+      max_intersections: $("a-max").value,
+      exp: $("a-exp").value,
+      enabled: true,
+    });
+    const idx = doc.devices.findIndex((d) => d.hwid === device.hwid);
+    if (idx >= 0) doc.devices[idx] = device;
+    else doc.devices.push(device);
+    dirty = true;
+    approveDialog.close();
+    try {
+      setStatus("تأیید و انتشار...");
+      await saveDevices();
+      await publish();
+      await removePendingRequest(approveTarget);
+      approveTarget = null;
+      await loadRequests();
+      setStatus("دسترسی تأیید و منتشر شد", true);
+    } catch (e) {
+      setStatus(e.message, false);
+    }
   });
 
   if (getToken() && getPem()) {
     showApp(true);
-    loadDevices().catch((e) => {
+    reloadAll().catch((e) => {
       setStatus(e.message, false);
       clearCreds();
       showApp(false);
