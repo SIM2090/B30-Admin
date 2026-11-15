@@ -407,9 +407,34 @@
       const payload = canonicalPayload(doc);
       const sig = signPayload(payload);
       const signed = JSON.stringify({ payload, sig }, null, 2) + "\n";
-      const release = await ensureRelease();
-      await uploadSignedAsset(release, "devices.signed.json", signed);
-      setStatus("منتشر شد — برنامه‌ها تا ۲ دقیقه دیگر می‌گیرند", true);
+      // 1) Contents API (CORS-safe) — مسیر اصلی
+      const cpath = "devices.signed.json";
+      let csha = null;
+      try {
+        const cur = await gh(`/repos/${CFG.setupRepo}/contents/${cpath}`);
+        csha = cur.sha;
+      } catch (e) {
+        if (!String(e.message || "").includes("Not Found")) throw e;
+      }
+      await gh(`/repos/${CFG.setupRepo}/contents/${cpath}`, {
+        method: "PUT",
+        json: true,
+        body: JSON.stringify({
+          message: `publish registry (${doc.devices.length} devices)`,
+          content: utf8ToBase64(signed),
+          ...(csha ? { sha: csha } : {}),
+        }),
+      });
+      // 2) آپلود release — اختیاری (ممکن است CORS مسدود کند)
+      let relNote = "";
+      try {
+        const release = await ensureRelease();
+        await uploadSignedAsset(release, "devices.signed.json", signed);
+      } catch (e) {
+        console.warn("release upload skipped:", e);
+        relNote = " (release رد شد)";
+      }
+      setStatus("منتشر شد" + relNote + " — برنامه‌ها تا ۲ دقیقه دیگر می‌گیرند", true);
     } finally {
       $("btn-publish").disabled = false;
     }
