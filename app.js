@@ -27,6 +27,16 @@
     return new Date().toISOString().slice(0, 10);
   }
 
+  function nowStamp() {
+    // برای انتخاب جدیدترین رجیستری توسط برنامه
+    return new Date().toISOString();
+  }
+
+  async function saveAndPublish() {
+    await saveDevices();
+    await publish();
+  }
+
   function getToken() {
     return sessionStorage.getItem(TOKEN_KEY) || "";
   }
@@ -337,7 +347,7 @@
   }
 
   async function saveDevices() {
-    doc.updated = today();
+    doc.updated = nowStamp();
     const json = JSON.stringify(doc, null, 2) + "\n";
     setStatus("در حال ذخیره...");
     $("btn-save").disabled = true;
@@ -496,7 +506,7 @@
     reloadAll().catch((e) => setStatus(e.message, false))
   );
   $("btn-save").addEventListener("click", () =>
-    saveDevices().catch((e) => setStatus(e.message, false))
+    saveAndPublish().catch((e) => setStatus(e.message, false))
   );
   $("btn-publish").addEventListener("click", () =>
     publish().catch((e) => setStatus(e.message, false))
@@ -511,16 +521,19 @@
     if (del) {
       const i = Number(del.dataset.del);
       const name = doc.devices[i]?.name || "";
-      if (!confirm(`حذف «${name}»؟`)) return;
+      if (!confirm(`حذف «${name}»؟\nپس از حذف، دسترسی برنامه قطع می‌شود.`)) return;
       doc.devices.splice(i, 1);
       dirty = true;
       renderDevices();
-      setStatus("حذف شد — هنوز ذخیره نشده", false);
+      setStatus("در حال حذف و انتشار...");
+      saveAndPublish()
+        .then(() => setStatus("حذف و منتشر شد — برنامه تا ۲ دقیقه دیگر قطع می‌کند", true))
+        .catch((e) => setStatus(e.message, false));
     }
   });
 
   $("btn-dialog-cancel").addEventListener("click", () => dialog.close());
-  $("btn-dialog-save").addEventListener("click", (ev) => {
+  $("btn-dialog-save").addEventListener("click", async (ev) => {
     ev.preventDefault();
     const device = normalizeDevice({
       name: $("f-name").value,
@@ -547,7 +560,13 @@
     dirty = true;
     dialog.close();
     renderDevices();
-    setStatus("تغییر اعمال شد — ذخیره یا انتشار را بزنید", false);
+    setStatus("در حال ذخیره و انتشار...");
+    try {
+      await saveAndPublish();
+      setStatus("ذخیره و منتشر شد — برنامه تا ۲ دقیقه دیگر می‌گیرد", true);
+    } catch (e) {
+      setStatus(e.message, false);
+    }
   });
 
   $("btn-approve-cancel").addEventListener("click", () => approveDialog.close());
