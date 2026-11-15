@@ -216,10 +216,12 @@
         ? `<img class="req-shot" src="${r.shotUrl}" alt="screenshot" data-shot="${escapeHtml(r.shotUrl)}" />`
         : `<div class="req-shot placeholder">بدون عکس</div>`;
       const locals = (r.local_ips || []).join(", ") || "—";
+      const cust = (r.customer_name || "").trim();
       card.innerHTML = `
         ${shotHtml}
         <div>
           <dl class="req-meta">
+            <div style="grid-column:1/-1"><dt>نام مشتری</dt><dd style="font-weight:700;font-size:1.05em;color:var(--accent, #0b6e4f)">${escapeHtml(cust || "— وارد نشده")}</dd></div>
             <div><dt>IP عمومی</dt><dd class="mono">${escapeHtml(r.public_ip || "—")}</dd></div>
             <div><dt>IP محلی</dt><dd class="mono">${escapeHtml(locals)}</dd></div>
             <div><dt>سیستم</dt><dd>${escapeHtml(r.hostname || "—")} / ${escapeHtml(r.username || "—")}</dd></div>
@@ -583,7 +585,11 @@
     if (ap) {
       approveTarget = requests.find((r) => r.id === ap.dataset.approve);
       if (!approveTarget) return;
-      $("a-name").value = approveTarget.hostname || approveTarget.username || "مشتری جدید";
+      $("a-name").value =
+        (approveTarget.customer_name || "").trim() ||
+        approveTarget.hostname ||
+        approveTarget.username ||
+        "مشتری جدید";
       $("a-max").value = 4;
       $("a-exp").value = "2099-12-31";
       approveDialog.showModal();
